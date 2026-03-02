@@ -1,20 +1,23 @@
 import os
 import random
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
-from datetime import time
 import pytz
+from datetime import time
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    CallbackQueryHandler,
+)
 
-
-# 🔑 ВСТАВЬ СЮДА СВОЙ ТОКЕН
+# 🔑 ТОКЕН
 TOKEN = "8604828806:AAHQ_Y_QiGo5rYUwYsT9F6QVpxvfyhOHd3U"
 
-# ===== СПИСОК МЕМОВ 1–100 =====
-
+# ===== СПИСОК МЕМОВ =====
 memes = [f for f in os.listdir() if f.endswith(".mp4")]
 random.shuffle(memes)
 
-# ===== ФУНКЦИЯ ОТПРАВКИ БЕЗ ПОВТОРОВ =====
+# ===== ОТПРАВКА МЕМА =====
 async def send_random_meme(message, context):
     random_meme = random.choice(memes)
 
@@ -22,13 +25,25 @@ async def send_random_meme(message, context):
         await message.reply_video(
             video=video,
             caption=random.choice([
-               "🎬 Твой мем дня 😌\n\nПриходи завтра за новым!",
-        "Вот твой ежедневный дофамин ✨\n\nПриходи завтра за новым!",
-        "Алгоритм выбрал это для тебя 🤖\n\nПриходи завтра за новым!",
-        "Рандом решил 😏\n\nПриходи завтра за новым!"
-    ])
+                "🎬 Твой мем дня 😌\n\nПриходи завтра за новым!",
+                "Вот твой ежедневный дофамин ✨\n\nПриходи завтра за новым!",
+                "Алгоритм выбрал это для тебя 🤖\n\nПриходи завтра за новым!",
+                "Рандом решил 😏\n\nПриходи завтра за новым!"
+            ])
         )
-   
+
+# ===== ЕЖЕДНЕВНОЕ СООБЩЕНИЕ =====
+async def send_daily_message(context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("🎬 Получить мем дня", callback_data="meme")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await context.bot.send_message(
+        chat_id=context.job.chat_id,
+        text="☀️ Доброе утро! Пора за мемом дня!",
+        reply_markup=reply_markup
+    )
 
 # ===== /start =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -40,6 +55,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Доброе утро ☀️\nГотов(а) к мему дня?",
         reply_markup=reply_markup
+    )
+
+    # запуск ежедневного сообщения
+    context.job_queue.run_daily(
+        send_daily_message,
+        time=time(8, 0, tzinfo=pytz.timezone("Europe/Amsterdam")),
+        chat_id=update.effective_chat.id
     )
 
 # ===== КНОПКА =====
@@ -74,6 +96,11 @@ app = (
 )
 
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("meme", meme_command))
+app.add_handler(CommandHandler("help", help_command))
+app.add_handler(CallbackQueryHandler(button))
+
+app.run_polling()
 app.add_handler(CommandHandler("meme", meme_command))
 app.add_handler(CommandHandler("help", help_command))
 app.add_handler(CallbackQueryHandler(button))
